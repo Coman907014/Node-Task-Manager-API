@@ -70,8 +70,11 @@ userSchema.statics.findByCredentials = async (inputEmail, inputPassword) => {
     return user
 }
 
-// userSchema method for generating a JWT
+// Methods are accessible on the instances
+// Static methods are accessible on the models
+// Hash the plain text pass before saving
 
+// userSchema method for generating a JWT
 userSchema.methods.generateAuthToken = async function () {
     const user = this;
     const token = jwt.sign({ _id: user._id.toString()}, 'taskapp')
@@ -80,9 +83,21 @@ userSchema.methods.generateAuthToken = async function () {
 
     return token
 }
-// Methods are accessible on the instances
-// Static methods are accessible on the models
-// Hash the plain text pass before saving
+// userSchema method for generating the public user information
+// Password, tokens, and all sensitive data were removed
+// This toJSON method will be applied to all responses which send the user information
+// It is called natively by Node, so it sends stringified data, 
+// We just added some modifications to it
+userSchema.methods.toJSON = function () {
+    const user = this
+    const userObject = user.toObject()
+    
+    delete userObject.password;
+    delete userObject.tokens;
+
+    return userObject
+}
+
 userSchema.pre('save', async function(next) {
     const user = this
     if (user.isModified('password')) {

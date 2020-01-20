@@ -1,7 +1,7 @@
 const express = require('express');
 const userRouter = new express.Router();
 const User = require('../models/userModel');
-
+const authMiddleware = require('../middleware/authMiddleware');
 // Create user
 userRouter.post('/users', async (req, res) => {
 
@@ -13,7 +13,7 @@ userRouter.post('/users', async (req, res) => {
         savedUser
         ? res.status(201).send({
             jwt: token,
-            savedUser
+            user: user
         })
         : res.status(400).send('The user was not saved')
     } catch (error) {
@@ -21,42 +21,68 @@ userRouter.post('/users', async (req, res) => {
     }
 })
 
-// Get all users
-userRouter.get('/users', async (req, res) => {
+// Login User
+userRouter.post('/users/login', async (req, res) => {
+    
     try {
-        const allUsers = await User.find({})
-        allUsers
-        ? res.status(201).send(allUsers)
-        : res.status(400).send(`There's no users`)
-    } catch (error) {
-        res.status(500).send(error)
-    }
-
-})
-
-// Get user by ID
-userRouter.get('/users/:id', async (req, res) => {
-    try {
-        const userID = req.params.id;
-        const requestedUser = await User.findById(userID)
-        requestedUser
-        ? res.status(200).send(requestedUser)
-        : res.status(404).send('No user found with this ID.')
-    } catch (error) {
-        res.status(500).send(error)
+        // Using the user model when we don't work with a specific user
+        // E.g. Searching through the DB for a certain user
+        const user = await User.findByCredentials(req.body.email, req.body.password)
+        // We user the generated user constant when we manipulate a certain user
+        // E.g. Found the user by ID and we are updating it.
+        // Model vs Instance!
+        // The bellow method is being defined in the userSchema as a method
+        const token = await user.generateAuthToken()
+        return res.send({
+            jwt: token,
+            user: user
+        })
+    } catch(error) {
+        res.status(400).send(error)
     }
 })
+// Logout User
+userRouter.post('/users/logout', authMiddleware, async (req, res) => {
+    try {
+        req.user.tokens = req.user.tokens.filter(token => {
+            return token.token !== req.token
+        })
 
+        await req.user.save()
+        res.send('User logged out!')
+    } catch(error) {
+        res.status(500).send(error)
+    }
+})
+
+// Logout User -> all sessions
+userRouter.post('/users/logout/all', authMiddleware, async (req, res) => {
+    try {
+        req.user.tokens = []
+        
+        await req.user.save()
+        res.send(req.user)
+    } catch(error) {
+        res.status(500).send(error)
+    }
+})
+
+// Read User Information
+userRouter.get('/users/me', authMiddleware ,async (req, res) => {
+    
+    res.status(200).send(req.user)
+})
 
 // Update User
-userRouter.patch('/users/:id', async (req, res) => {
+userRouter.patch('/users/me', authMiddleware , async (req, res) => {
 
     const updates = Object.keys(req.body);
     const allowedUpdates = ['name', 'email', 'password', 'age'];
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update))
     if (isValidOperation) {
         try {
-            const user = await User.findById(req.params.id);
+            const user = req.user;
+
             updates.forEach((update) => user[update] = req.body[update])
             await user.save()
             return user
@@ -70,24 +96,13 @@ userRouter.patch('/users/:id', async (req, res) => {
     }
 })
 
-
-// Login User
-userRouter.post('/users/login', async (req, res) => {
+// Delete user
+userRouter.delete('/users/me', authMiddleware, async (req, res) => {
     try {
-        // Using the user model when we don't work with a specific user
-        // E.g. Searching through the DB for a certain user
-        const user = await User.findByCredentials(req.body.email, req.body.password)
-        // We user the generated user constant when we manipulate a certain user
-        // E.g. Found the user by ID and we are updating it.
-        // Model vs Instance!
-        // The bellow method is being defined in the userSchema as a method
-        const token = await user.generateAuthToken()
-        return res.send({
-            jwt: token,
-            user
-        })
+        await req.user.remove()
+        res.send(user)
     } catch(error) {
-        res.status(400).send(error)
+        res.status(500).send()
     }
 })
 
