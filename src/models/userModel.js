@@ -3,7 +3,7 @@ const validator = require('validator');
 const userPasswordHashing = require('../utils/passwordHashing')
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
+const Task = require('./taskModel');
 const userSchema = new mongoose.Schema({
 
     name: {
@@ -54,6 +54,20 @@ const userSchema = new mongoose.Schema({
             required: true
         }
     }],
+}, {
+    timestamps: true,
+})
+
+// The virtual method creates a virtual link (non existent in the DB)
+// Between the userSchema and the tasks containing userId.
+// Basically, we let the user know which tasks are his by checking the userId in the taskSchema
+userSchema.virtual('tasks', {
+    ref: 'Task',
+    // The following lines compare the field in this schema
+    // with the field in the schema we are linking
+    // userSchema._id is being linked with taskSchema.userId
+    localField: '_id',
+    foreignField: 'userId'
 })
 // Find user by email and compare input with hashed password.
 userSchema.statics.findByCredentials = async (inputEmail, inputPassword) => {
@@ -97,12 +111,22 @@ userSchema.methods.toJSON = function () {
 
     return userObject
 }
-
+// When user is created, the password is being hashed
 userSchema.pre('save', async function(next) {
     const user = this
     if (user.isModified('password')) {
        user.password = await userPasswordHashing.userInputToHash(user.password)
     }
+    next()
+})
+
+// Delete user tasks when user is removed
+userSchema.pre('remove', async function(next) {
+    const user = this;
+    console.log(user.id);
+    console.log(user._id);
+    
+    await Task.deleteMany({ userId: user._id })
     next()
 })
 
