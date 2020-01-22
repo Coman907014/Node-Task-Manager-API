@@ -17,6 +17,7 @@ const authVerification = async (req, res, next) => {
         // Under the user property
         req.token = token
         req.user = user
+        
         next()
     } catch(error) {
         res.status(401).send({

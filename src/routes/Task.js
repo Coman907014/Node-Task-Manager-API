@@ -2,8 +2,8 @@ const express = require('express');
 const taskRouter = new express.Router();
 const authMiddleware = require('../middleware/authMiddleware')
 const Task = require('../models/taskModel');
-
-
+const mapTaskQueryParamsForPopulateMethod = require('../utils/taskQueryParamsManipulation')
+const sendTaskCreatedEmail = require('../emails/emailTasks');
 // Create tasks route
 taskRouter.post('/tasks', authMiddleware, async (req, res) => {
     const task =  new Task ({
@@ -12,6 +12,13 @@ taskRouter.post('/tasks', authMiddleware, async (req, res) => {
     })
     try {
         const savedTask = await task.save();
+        console.log(savedTask)
+        console.log(req)
+        sendTaskCreatedEmail(
+            req.user.email,
+            req.user.name,
+            savedTask.id,
+            savedTask.description)
         savedTask
         ? res.status(201).send(savedTask)
         : res.status(400).send('The user was not saved')
@@ -21,13 +28,22 @@ taskRouter.post('/tasks', authMiddleware, async (req, res) => {
 })
 
 // Get all tasks route
-
-taskRouter.get('/tasks', async (req, res) => {
+taskRouter.get('/tasks', authMiddleware, async (req, res) => {
+    const { mappedQueryParams, mappedSortingParams } = mapTaskQueryParamsForPopulateMethod(req.query);
     try {
-        const allTasks = await Task.find({})
-        allTasks
-        ? res.status(201).send(allTasks)
-        : res.status(400).send(`There are no tasks`)
+        await req.user.populate({
+            path: 'tasks',
+            match: mappedQueryParams,
+            options: {
+                limit: parseInt(req.query.limit),
+                skip: parseInt(req.query.skip),
+                sort: {
+                    ...mappedSortingParams
+                }
+            }
+        }).execPopulate()
+        res.status(201).send(req.user.tasks)
+
     } catch (error) {
         res.status(500).send(error)
     }
@@ -35,10 +51,10 @@ taskRouter.get('/tasks', async (req, res) => {
 })
 
 // Get task by ID
-taskRouter.get('/tasks/:id', async (req, res) => {
+taskRouter.get('/tasks/:id', authMiddleware , async (req, res) => {
     const taskID = req.params.id
     try {
-        const requestedTask = await Task.findById(taskID)       
+        const requestedTask = await Task.findOne({ _id: taskID, userId: req.user._id })
         requestedTask
         ? res.status(201).send(requestedTask)
         : res.status(400).send(`There's no task with such ID`)
@@ -48,14 +64,14 @@ taskRouter.get('/tasks/:id', async (req, res) => {
 })
 
 // Update task by ID
-taskRouter.patch('/tasks/:id', async (req, res) => {
+taskRouter.patch('/tasks/:id', authMiddleware, async (req, res) => {
     const taskID = req.params.id;
     const updates = Object.keys(req.body);
     const allowedUpdates = ['description', 'completed']
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update))
     if (isValidOperation) {
         try {
-            const task = await Task.findById(taskID);
+            const task = await Task.findOne({ _id: taskID, userId: req.user._id })
             updates.forEach(update => task[update] = req.body[update])
             await task.save()
               return  task
@@ -70,22 +86,17 @@ taskRouter.patch('/tasks/:id', async (req, res) => {
 })
 
 // Delete task by ID
-
-taskRouter.delete('/tasks/:id', async (req, res) => {
+taskRouter.delete('/tasks/:id', authMiddleware , async (req, res) => {
     const taskID = req.params.id;
     try {
-        await Task.findByIdAndDelete(taskID)
+        await Task.findOneAndDelete({ _id: taskID, userId: req.user._id})
     } catch (error) {
       return res.status(500).send(error)
     }
     try {
-        const updatedTaskList = await Task.find({})
-        const updatedTaskListLength = updatedTaskList.length
+        const updatedTaskList = await Task.find({ userId: req.user._id })
       return updatedTaskList
-        ? res.status(201).send({
-            tasksLeft: updatedTaskListLength,
-            tasksList: updatedTaskList
-        })
+        ? res.status(201).send({ updatedTaskList })
         : res.status(400).send(`There's no task with such ID`)
     } catch (error) {
        return res.status(500).send(error)

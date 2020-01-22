@@ -2,6 +2,8 @@ const express = require('express');
 const userRouter = new express.Router();
 const User = require('../models/userModel');
 const authMiddleware = require('../middleware/authMiddleware');
+const sendWelcomeEmail = require('../emails/emailAccount');
+
 // Create user
 userRouter.post('/users', async (req, res) => {
 
@@ -10,6 +12,7 @@ userRouter.post('/users', async (req, res) => {
 
     try {
         const savedUser = await user.save()
+        sendWelcomeEmail(user.email, user.name);
         savedUser
         ? res.status(201).send({
             jwt: token,
