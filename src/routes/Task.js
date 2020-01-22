@@ -35,7 +35,6 @@ taskRouter.get('/tasks', authMiddleware, async (req, res) => {
                 }
             }
         }).execPopulate()
-
         res.status(201).send(req.user.tasks)
 
     } catch (error) {
