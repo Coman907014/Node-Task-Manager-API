@@ -2,10 +2,10 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 
 const authVerification = async (req, res, next) => {
-    
+    const tokenHashKey = process.env.TOKEN_HASHING_KEY;
     try {
         const token = req.header('Authorization').replace('Bearer ', '');
-        const decoded = jwt.verify(token, 'taskapp')
+        const decoded = jwt.verify(token, tokenHashKey)
         
         // Find a user with the id from the token,
         // which also has the token inside the tokens array.
