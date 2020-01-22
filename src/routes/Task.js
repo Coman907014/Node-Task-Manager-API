@@ -3,7 +3,7 @@ const taskRouter = new express.Router();
 const authMiddleware = require('../middleware/authMiddleware')
 const Task = require('../models/taskModel');
 const mapTaskQueryParamsForPopulateMethod = require('../utils/taskQueryParamsManipulation')
-
+const sendTaskCreatedEmail = require('../emails/emailTasks');
 // Create tasks route
 taskRouter.post('/tasks', authMiddleware, async (req, res) => {
     const task =  new Task ({
@@ -12,6 +12,13 @@ taskRouter.post('/tasks', authMiddleware, async (req, res) => {
     })
     try {
         const savedTask = await task.save();
+        console.log(savedTask)
+        console.log(req)
+        sendTaskCreatedEmail(
+            req.user.email,
+            req.user.name,
+            savedTask.id,
+            savedTask.description)
         savedTask
         ? res.status(201).send(savedTask)
         : res.status(400).send('The user was not saved')
