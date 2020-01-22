@@ -4,6 +4,8 @@ const userPasswordHashing = require('../utils/passwordHashing')
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Task = require('./taskModel');
+const tokenHashKey = process.env.TOKEN_HASHING_KEY;
+
 const userSchema = new mongoose.Schema({
 
     name: {
@@ -91,7 +93,7 @@ userSchema.statics.findByCredentials = async (inputEmail, inputPassword) => {
 // userSchema method for generating a JWT
 userSchema.methods.generateAuthToken = async function () {
     const user = this;
-    const token = jwt.sign({ _id: user._id.toString()}, 'taskapp')
+    const token = jwt.sign({ _id: user._id.toString()}, tokenHashKey)
     user.tokens = user.tokens.concat({ token })
     await user.save()
 
@@ -123,9 +125,6 @@ userSchema.pre('save', async function(next) {
 // Delete user tasks when user is removed
 userSchema.pre('remove', async function(next) {
     const user = this;
-    console.log(user.id);
-    console.log(user._id);
-    
     await Task.deleteMany({ userId: user._id })
     next()
 })
