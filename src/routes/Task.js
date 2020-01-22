@@ -12,8 +12,6 @@ taskRouter.post('/tasks', authMiddleware, async (req, res) => {
     })
     try {
         const savedTask = await task.save();
-        console.log(savedTask)
-        console.log(req)
         sendTaskCreatedEmail(
             req.user.email,
             req.user.name,

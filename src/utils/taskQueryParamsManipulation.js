@@ -1,4 +1,4 @@
-const mapTaskQueryParamsForFindMethod = (queryParam) => {
+const mapTaskQueryParamsForPopulateMethod = (queryParam) => {
     const mappedQueryParams = {};
     const mappedSortingParams= {};
     if (queryParam.completed) {
@@ -17,4 +17,4 @@ const mapTaskQueryParamsForFindMethod = (queryParam) => {
     }
 }
 
-module.exports = mapTaskQueryParamsForFindMethod;
+module.exports = mapTaskQueryParamsForPopulateMethod;
